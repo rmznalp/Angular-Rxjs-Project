@@ -1,30 +1,35 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { BehaviorSubject, EMPTY, Observable, throwError } from 'rxjs';
+import { catchError, map, tap } from 'rxjs/operators';
 
 import { Product } from './product';
 import { Supplier } from '../suppliers/supplier';
 import { SupplierService } from '../suppliers/supplier.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class ProductService {
-  private productsUrl = 'api/products';
+  private productsUrl = 'api/product';
   private suppliersUrl = this.supplierService.suppliersUrl;
+  errorMessageBs = new BehaviorSubject('');
 
-  constructor(private http: HttpClient,
-              private supplierService: SupplierService) { }
+  products$ = this.http.get<Product[]>(this.productsUrl).pipe(
+    map((products) =>
+      products.map((product) => {
+        return { ...product, price: product.price * 2 } as Product;
+      })
+    ),
+    tap((data) => console.log('Products: ', JSON.stringify(data))),
+    catchError(this.handleError)
+  );
 
-  getProducts(): Observable<Product[]> {
-    return this.http.get<Product[]>(this.productsUrl)
-      .pipe(
-        tap(data => console.log('Products: ', JSON.stringify(data))),
-        catchError(this.handleError)
-      );
-  }
+  constructor(
+    private http: HttpClient,
+    private supplierService: SupplierService
+  ) {}
 
   private fakeProduct(): Product {
     return {
@@ -35,24 +40,25 @@ export class ProductService {
       price: 8.9,
       categoryId: 3,
       // category: 'Toolbox',
-      quantityInStock: 30
+      quantityInStock: 30,
     };
   }
 
   private handleError(err: any): Observable<never> {
     // in a real world app, we may send the server to some remote logging infrastructure
     // instead of just logging it to the console
-    let errorMessage: string;
+
     if (err.error instanceof ErrorEvent) {
       // A client-side or network error occurred. Handle it accordingly.
-      errorMessage = `An error occurred: ${err.error.message}`;
+      this.errorMessageBs.next(`An error occurred: ${err.error.message}`);
     } else {
       // The backend returned an unsuccessful response code.
       // The response body may contain clues as to what went wrong,
-      errorMessage = `Backend returned code ${err.status}: ${err.body.error}`;
+      this.errorMessageBs.next(
+        `Backend returned code ${err.status}: ${err.body.error}`
+      );
     }
     console.error(err);
-    return throwError(errorMessage);
+    return throwError(this.errorMessageBs);
   }
-
 }

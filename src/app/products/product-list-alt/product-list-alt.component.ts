@@ -1,37 +1,45 @@
-import { catchError } from 'rxjs/operators';
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  ChangeDetectionStrategy,
-} from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 
-import { BehaviorSubject, EMPTY, Observable, Subscription } from 'rxjs';
+import { combineLatest, Subject, EMPTY } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 
-import { Product } from '../product';
 import { ProductService } from '../product.service';
+import { Product } from '../product';
 
 @Component({
   selector: 'pm-product-list',
   templateUrl: './product-list-alt.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProductListAltComponent {
   pageTitle = 'Products';
-  errorMessageBs = new BehaviorSubject('');
-  selectedProductId: number;
+  private errorMessageSubject = new Subject<string>();
+  errorMessage$ = this.errorMessageSubject.asObservable();
 
-  products$: Observable<Product[]> = this.productService.products$.pipe(
-    catchError((err) => {
-      this.errorMessageBs.next(err);
-      return EMPTY;
-    })
-  );
-  sub: Subscription;
+  // Products with their categories
+  products$ = this.productService.productsWithCategory$
+    .pipe(
+      catchError(err => {
+        this.errorMessageSubject.next(err);
+        return EMPTY;
+      }));
 
-  constructor(private productService: ProductService) {}
+  // Selected product to highlight the entry
+  selectedProduct$ = this.productService.selectedProduct$;
+
+  // Combine all streams for the view
+  vm$ = combineLatest([
+    this.products$,
+    this.selectedProduct$
+  ])
+    .pipe(
+      map(([products, product]: [Product[], Product]) =>
+        ({ products, productId: product ? product.id : 0 }))
+    );
+
+  constructor(private productService: ProductService) { }
 
   onSelected(productId: number): void {
-    console.log('Not yet implemented');
+    this.productService.selectedProductChanged(productId);
   }
 }

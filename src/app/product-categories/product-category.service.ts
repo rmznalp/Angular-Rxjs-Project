@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 import { throwError, Observable } from 'rxjs';
+import { catchError, tap, shareReplay } from 'rxjs/operators';
 
 import { ProductCategory } from './product-category';
 
@@ -10,6 +11,14 @@ import { ProductCategory } from './product-category';
 })
 export class ProductCategoryService {
   private productCategoriesUrl = 'api/productCategories';
+
+  // All product categories
+  productCategories$ = this.http.get<ProductCategory[]>(this.productCategoriesUrl)
+    .pipe(
+      tap(data => console.log('categories', JSON.stringify(data))),
+      shareReplay(1),
+      catchError(this.handleError)
+    );
 
   constructor(private http: HttpClient) { }
 
